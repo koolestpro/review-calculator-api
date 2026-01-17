@@ -21,6 +21,7 @@ export default async function handler(req, res) {
       reviewsNeeded,
       pageUrl
     } = req.body;
+    const afterGoal = totalReviews + reviewsNeeded;
 
     if (!email) {
       return res.status(400).json({ error: "Email is required" });
@@ -58,6 +59,7 @@ export default async function handler(req, res) {
               totalReviews,
               targetScore,
               reviewsNeeded,
+              afterGoal,
               pageUrl
             }
           }
