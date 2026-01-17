@@ -1,15 +1,13 @@
 export default async function handler(req, res) {
-  // ✅ CORS HEADERS
+  // Allow CORS
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, revision");
 
-  // ✅ Handle preflight request
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
-  // ❌ Block non-POST
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
@@ -17,23 +15,23 @@ export default async function handler(req, res) {
   try {
     const {
       email,
-      current_score,
-      total_reviews,
-      target_score,
-      reviews_needed
+      currentScore,
+      totalReviews,
+      targetScore,
+      reviewsNeeded,
+      pageUrl
     } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: "Email is required" });
     }
 
-    // 🔑 SEND TO KLAVIYO
-    const response = await fetch("https://a.klaviyo.com/api/events/", {
+    const klaviyoRes = await fetch("https://a.klaviyo.com/api/events/", {
       method: "POST",
       headers: {
         "Authorization": `Klaviyo-API-Key ${process.env.KLAVIYO_PRIVATE_KEY}`,
         "Content-Type": "application/json",
-        "revision": "2023-02-22"
+        "revision": "2024-10-15" // ✅ FIX
       },
       body: JSON.stringify({
         data: {
@@ -43,7 +41,7 @@ export default async function handler(req, res) {
               data: {
                 type: "metric",
                 attributes: {
-                  name: "Review Calculator Submitted"
+                  name: "Review Calculator Submitted" // ✅ ACTIVE METRIC
                 }
               }
             },
@@ -51,25 +49,32 @@ export default async function handler(req, res) {
               data: {
                 type: "profile",
                 attributes: {
-                  email: email
+                  email
                 }
               }
             },
             properties: {
-              current_score,
-              total_reviews,
-              target_score,
-              reviews_needed,
-              page: req.headers.origin || "unknown"
+              currentScore,
+              totalReviews,
+              targetScore,
+              reviewsNeeded,
+              pageUrl
             }
           }
         }
       })
     });
 
+    const text = await klaviyoRes.text();
+
+    if (!klaviyoRes.ok) {
+      console.error("Klaviyo error:", text);
+      return res.status(400).json({ error: "Klaviyo request failed" });
+    }
+
     return res.status(200).json({ success: true });
   } catch (err) {
-    console.error(err);
+    console.error("Server error:", err);
     return res.status(500).json({ error: "Server error" });
   }
 }
